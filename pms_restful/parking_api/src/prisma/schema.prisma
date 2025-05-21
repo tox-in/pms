@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int              @id @default(autoincrement())
+  firstName       String
+  lastName        String
+  email           String           @unique
+  password        String
+  role            Role             @default(USER)
+  vehicles        Vehicle[]
+  parkingSessions ParkingSession[]
+  bills           Bill[]
+  createdAt       DateTime         @default(now())
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Vehicle {
+  id              Int              @id @default(autoincrement())
+  userId          Int
+  plate           String           @unique
+  type            String?          @default("car")
+  size            String?          @default("medium")
+  model           String?
+  color           String?
+  user            User             @relation(fields: [userId], references: [id])
+  parkingSessions ParkingSession[]
+  bills           Bill[]
+  createdAt       DateTime         @default(now())
+}
+
+model Parking {
+  id              Int              @id @default(autoincrement())
+  parkingCode     String           @unique
+  name            String
+  availableSpaces Int
+  totalSpaces     Int
+  location        String
+  feePerHour      Float
+  status          ParkingStatus    @default(AVAILABLE)
+  parkingLots     ParkingLot[]
+  parkingSessions ParkingSession[]
+  bills           Bill[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+enum ParkingStatus {
+  AVAILABLE
+  MAINTENANCE
+  FULL
+}
+
+model ParkingLot {
+  id              Int              @id @default(autoincrement())
+  parkingId       Int
+  lotNumber       String           @unique
+  isOccupied      Boolean          @default(false)
+  parking         Parking          @relation(fields: [parkingId], references: [id])
+  parkingSessions ParkingSession[]
+  createdAt       DateTime         @default(now())
+}
+
+model ParkingSession {
+  id              Int           @id @default(autoincrement())
+  vehicleId       Int
+  parkingId       Int
+  parkingLotId    Int
+  userId          Int?
+  entryTime       DateTime      @default(now())
+  exitTime        DateTime?
+  durationMinutes Int?
+  totalAmount     Float?
+  sessionNumber   String        @unique @default(uuid())
+  status          SessionStatus @default(ACTIVE)
+  ticket          Ticket?
+  bill            Bill?
+  vehicle         Vehicle       @relation(fields: [vehicleId], references: [id])
+  parking         Parking       @relation(fields: [parkingId], references: [id])
+  parkingLot      ParkingLot    @relation(fields: [parkingLotId], references: [id])
+  user            User?         @relation(fields: [userId], references: [id])
+  updatedAt       DateTime      @updatedAt
+}
+
+model Ticket {
+  id             Int            @id @default(autoincrement())
+  sessionId      Int            @unique
+  ticketNumber   String         @unique @default(uuid())
+  issueTime      DateTime       @default(now())
+  parkingSession ParkingSession @relation(fields: [sessionId], references: [id])
+}
+
+model Bill {
+  id             Int            @id @default(autoincrement())
+  sessionId      Int            @unique
+  userId         Int
+  vehicleId      Int
+  parkingId      Int
+  issueDate      DateTime       @default(now())
+  totalAmount    Float
+  status         PaymentStatus  @default(PENDING)
+  paymentDate    DateTime?
+  parkingSession ParkingSession @relation(fields: [sessionId], references: [id])
+  user           User           @relation(fields: [userId], references: [id])
+  vehicle        Vehicle        @relation(fields: [vehicleId], references: [id])
+  parking        Parking        @relation(fields: [parkingId], references: [id])
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  OVERSTAY
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  REFUNDED
+  FAILED
+}
